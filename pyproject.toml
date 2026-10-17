@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ray-march-lab"
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    # Pinned to the release the book targets, same as mojo-gpu-puzzles.
+    "mojo==1.1.0",
+    "max==26.6.0",
+    "poethepoet>=0.34.0",
+    # scripts/track_edt.py: map image -> distance field for the benchmark.
+    "numpy>=1.26",
+    "pillow>=10.0",
+    "pyyaml>=6.0",
+    "scipy>=1.15.3",
+]
+
+[project.optional-dependencies]
+nvidia = ["pynvml>=11.5.0"]
+
+# The repo ships no importable package; it exists to carry dependencies and
+# the `poe` shortcuts.
+[tool.setuptools]
+py-modules = []
+
+[tool.poe.tasks]
+tests = [
+    { cmd = "python scripts/track_edt.py maps/Spielberg_map.yaml" },
+    { cmd = "bash solutions/run.sh" },
+]
+
+edt01 = "python scripts/track_edt.py maps/Spielberg_map.yaml"
+p01 = "mojo -I . problems/p01/p01.mojo"
+viz01 = "python book/src/puzzle_01/puzzle_01_viz.py"
+
+# GPU information
+gpu-info = { cmd = "python3 scripts/gpu_specs.py --summary" }
+gpu-specs = { cmd = "python3 scripts/gpu_specs.py" }
