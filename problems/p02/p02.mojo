@@ -2,7 +2,6 @@ from max.gpu import thread_idx
 from max.gpu.host import DeviceBuffer, DeviceContext
 from layout import TileTensor
 from layout.tile_layout import row_major
-from std.math import clamp
 from std.testing import assert_equal
 
 from harness.canary import PuzzleMemory
@@ -13,13 +12,11 @@ comptime Vec2 = SIMD[dtype, 2]
 # ANCHOR: clearance
 comptime NUM_CARS = 4
 comptime SIZE = 8  # the map is a SIZE x SIZE px room with a 1 px wall all round
-comptime RES: Scalar[
-    dtype
-] = 0.5  # m/px, coarse so the whole room fits in a print
+comptime RES: Scalar[dtype] = 0.5  # m/px, coarse so the room fits in a print
 comptime ORIGIN = Vec2(-2.0, -2.0)  # world x, y of the bottom-left pixel
-comptime HALF_DIAG: Scalar[
-    dtype
-] = 0.35805028  # m, half the car's diagonal: hypot(0.42, 0.58) / 2
+comptime CAR_W: Scalar[dtype] = 0.42  # m, the F1TENTH's width
+comptime CAR_L: Scalar[dtype] = 0.58  # m, and length
+comptime HALF_DIAG: Scalar[dtype] = 0.35805028  # m, hypot(CAR_W, CAR_L) / 2
 comptime cars_layout = row_major[NUM_CARS, 3]()
 comptime edt_layout = row_major[SIZE, SIZE]()
 comptime out_layout = row_major[NUM_CARS]()
@@ -94,15 +91,10 @@ def main() raises:
         var expected = ctx.enqueue_create_host_buffer[dtype](NUM_CARS)
         with cars.map_to_host() as c, edt.map_to_host() as e:
             for i in range(NUM_CARS):
-                var col = clamp(Int((c[i * 3] - ORIGIN[0]) / RES), 0, SIZE - 1)
-                var row = clamp(
-                    Int(
-                        Scalar[dtype](SIZE - 1)
-                        - (c[i * 3 + 1] - ORIGIN[1]) / RES
-                    ),
-                    0,
-                    SIZE - 1,
-                )
+                var col = Int((c[i * 3] - ORIGIN[0]) / RES).clamp(0, SIZE - 1)
+                var row = Int(
+                    SIZE - 1 - (c[i * 3 + 1] - ORIGIN[1]) / RES
+                ).clamp(0, SIZE - 1)
                 expected[i] = e[row * SIZE + col] * RES - HALF_DIAG
 
         print("room (px to wall):")

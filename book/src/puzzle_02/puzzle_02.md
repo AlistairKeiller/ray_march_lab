@@ -17,22 +17,28 @@ In this puzzle, you'll learn about:
 - 2D tensors: `row_major[SIZE, SIZE]()`, indexed `edt[row, col]`
 - The map origin as two scalar arguments, `ox` and `oy`
 - Float to int conversion with `Int()`, which truncates toward zero
-- Clamping indices with `clamp` from `std.math` instead of branching
-- Reading a tensor's shape inside a kernel: `edt.dim[0]()`
+- Clamping indices with `Int.clamp()` instead of branching
 
 For each car \\(i\\) at world position \\((x_i, y_i)\\):
 
 \\[\Large col = \left\lfloor \frac{x_i - o_x}{res} \right\rfloor \qquad
-row = \left\lfloor (h - 1) - \frac{y_i - o_y}{res} \right\rfloor\\]
+row = \left\lfloor (H - 1) - \frac{y_i - o_y}{res} \right\rfloor\\]
 
-\\[\Large output[i] = edt[row, col] \times res - \tfrac{1}{2}\sqrt{W^2 + L^2}\\]
+\\[\Large output[i] = edt[row, col] \times res - \frac{D}{2} \qquad
+D^2 = W_{car}^2 + L_{car}^2\\]
+
+where \\((o_x, o_y)\\) is the world position of the map's bottom-left pixel,
+\\(res\\) its resolution in meters per pixel, \\(H\\) its height in pixels,
+and \\(W_{car} = 0.42\\) m and \\(L_{car} = 0.58\\) m are the F1TENTH's width
+and length. \\(D\\) is the car's diagonal, so \\(D / 2\\) is the furthest any
+corner of the car reaches from its centre; in the code it is `HALF_DIAG`.
 
 ### The row flip
 
 A ROS map's `origin` is the world position of the **bottom-left** pixel, and
 world \\(y\\) increases upward. Image rows increase downward from the top. So
 \\(x\\) maps straight onto columns, but \\(y\\) maps onto rows from the bottom:
-row \\(h - 1\\) is \\(y = o_y\\). Get this flip wrong and every car drives a
+row \\(H - 1\\) is \\(y = o_y\\). Get this flip wrong and every car drives a
 mirrored track, and nothing complains until the lidar looks wrong.
 
 ### Why clamp
@@ -47,18 +53,32 @@ which is also the right answer: off the map counts as crashed.
 - Cars: `NUM_CARS = 4`, as rows of `[x, y, psi]`, layout `row_major[NUM_CARS, 3]()`
 - Map: an `8 x 8` px room with a 1 px wall all round, `RES = 0.5` m/px,
   `ORIGIN = (-2, -2)`
-- Car size: `HALF_DIAG = hypot(0.42, 0.58) / 2` m, half the F1TENTH's diagonal
+- Car size: `CAR_W = 0.42` m by `CAR_L = 0.58` m, the F1TENTH's width and length;
+  `HALF_DIAG = hypot(CAR_W, CAR_L) / 2` is half its diagonal
 - One thread per car: one block of `NUM_CARS` threads
 
 Notes:
 
-- **Shape in kernel**: `edt.dim[0]()` is the number of rows, `edt.dim[1]()`
-  the number of columns. They come back in the tensor's index type, so wrap
-  them in `Int(...)` before doing arithmetic with them
+- **Shape in kernel**: the room is `SIZE` pixels square and `SIZE` is a
+  compile-time constant, so the kernel can use it directly. A tensor also
+  knows its own shape, `edt.dim[0]()` rows by `edt.dim[1]()` columns, which is
+  what Puzzle 4 uses once the size comes from a file
 - **Origin**: `ORIGIN` is a `Vec2` on the host and arrives in the kernel as the
   two scalars `ox` and `oy`
 - **Module constants**: `HALF_DIAG` is a `comptime` constant, and is baked into
-  the kernel
+  the kernel. It is a literal because `sqrt` and `hypot` are not folded at
+  compile time and do not lower inside a Metal kernel; use it rather than
+  recomputing the diagonal
+- **Truncation**: `Int(x)` drops the fraction toward zero, which is the floor
+  for every point inside the map, and is the conversion warporacer's own
+  `wp.int32()` does. If you would rather write what the formula says,
+  `Int(floor(x))` with `from std.math import floor` works in the kernel too;
+  the two differ only for negative coordinates, which the clamp sends to 0
+  either way
+- **Integer indices**: `edt[row, col]` needs `Int` indices. `//` on a `Scalar`
+  returns a `Scalar`, so if the compiler fails deep inside `tile_tensor.mojo`
+  with `CoordLike requires integral types`, one of the two is still a float:
+  wrap it in `Int(...)`
 
 ## Code to complete
 
@@ -74,9 +94,8 @@ Notes:
 <div class="solution-tips">
 
 1. Column: `(cars[i, 0] - ox) / res`, truncated with `Int(...)`
-2. Row: `Scalar[dtype](Int(edt.dim[0]()) - 1) - (cars[i, 1] - oy) / res`,
-   truncated the same way
-3. Clamp both to `[0, dim - 1]`: `clamp(value, 0, Int(edt.dim[k]()) - 1)`
+2. Row: `SIZE - 1 - (cars[i, 1] - oy) / res`, truncated the same way
+3. Clamp both to `[0, SIZE - 1]` with `Int`'s method: `.clamp(0, SIZE - 1)`
 4. `output[i] = edt[row, col] * res - HALF_DIAG`
 
 </div>
@@ -120,8 +139,9 @@ expected: HostBuffer([1.1419497, 0.14194971, 0.6419497, -0.3580503])
 This solution:
 
 - Converts world \\(x\\) to a column and world \\(y\\) to a row, flipping the
-  row axis with `Scalar[dtype](Int(edt.dim[0]()) - 1) - ...`
-- Truncates with `Int()` and clamps both indices into the raster
+  row axis with `SIZE - 1 - ...`
+- Truncates with `Int()` and clamps both indices into the raster with
+  `.clamp(0, SIZE - 1)`
 - Reads the wall distance, scales it to meters, and subtracts `HALF_DIAG`
 
 Following the four cars through:
