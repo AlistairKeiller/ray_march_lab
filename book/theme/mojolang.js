@@ -203,10 +203,9 @@
         };
     });
 
-    // This ensures highlighting runs after the page loads
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('pre code').forEach(function (block) {
-            hljs.highlightElement(block);
-        });
+    // book.js has already highlighted every block by the time this file runs, and it did not
+    // know Mojo, so it left the Mojo blocks plain. Do those again now that the language exists.
+    document.querySelectorAll("code.language-mojo").forEach(function (block) {
+        hljs.highlightBlock(block);
     });
 })();

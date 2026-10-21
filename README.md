@@ -1,85 +1,74 @@
-<p align="center">
-  <h1 align="center">Ray Marching Lab</h1>
-</p>
+# Ray March Lab
 
-<p align="center">
-  <h3 align="center">A Mojo🔥 GPU puzzle built from warporacer's lidar kernel</h3>
-</p>
+GPU ray marching puzzles in [Mojo](https://docs.modular.com/mojo/), in the format of
+[Mojo GPU Puzzles](https://puzzles.modular.com/). Six puzzles build the lidar kernel from
+[warporacer](https://github.com/uci-f1tenth/warporacer), a GPU simulator that trains F1TENTH
+racing policies by stepping thousands of cars at once, one piece at a time: pixels to meters,
+world to pixel, one sphere-marched ray, a 108-beam scan on a real track, a padded multi-map
+stack, and a benchmark at warporacer scale (8k cars x 108 beams x 20 m on 8 maps) that times
+four ways of launching the same kernel. Every puzzle runs on any GPU that
+[MAX supports](https://max.modular.com/packages/#gpu-compatibility): NVIDIA, AMD or Apple
+silicon.
 
-## Overview
+The same lab exists in NVIDIA Warp, the framework warporacer is written in:
+[ray_march_lab_warp](https://github.com/AlistairKeiller/ray_march_lab_warp). The two share
+their book, map loader, checks and puzzle numbering, so you can read a puzzle in one language
+and write it in the other.
 
-[warporacer](https://github.com/uci-f1tenth/warporacer) trains racing policies
-by stepping thousands of F1TENTH cars at once on the GPU. The most expensive
-thing each car does per step is read its lidar: 108 rays, each marched through
-the track's occupancy grid until it hits a wall. This lab pulls that one kernel
-out and turns it into a puzzle in the style of
-[Mojo GPU Puzzles](https://puzzles.modular.com/), so you can write it yourself
-and then see how fast it runs at the scale the real sim uses.
+## Getting started
 
-The puzzle has three parts:
-
-1. **Sphere tracing**: march seven rays from one car through a 40 x 16 map
-   using a precomputed wall-distance field.
-2. **Lidar sweep**: one thread per (car, beam), with each car's heading rotating
-   its fan of rays.
-3. **Benchmark**: 8192 cars x 108 beams on the Spielberg track at 20 m range,
-   against a one-pixel-at-a-time baseline.
-
-It assumes you have been through at least puzzles 1 to 8 of Mojo GPU Puzzles
-(thread indexing, guards, 2D blocks, `TileTensor`).
-
-## Getting Started
-
-You'll need a [compatible GPU](https://max.modular.com/packages/#gpu-compatibility)
-and [pixi](https://pixi.sh/latest/#installation). On macOS you also need the
-Metal toolchain: if `xcrun -sdk macosx metal` complains that it is missing, run
+You need [uv](https://docs.astral.sh/uv/) and a supported GPU. On macOS you also need the Metal
+toolchain: if `xcrun -sdk macosx metal` says it is missing, run
 `xcodebuild -downloadComponent MetalToolchain`.
 
 ```bash
 git clone https://github.com/AlistairKeiller/ray_march_lab
 cd ray_march_lab
+uv sync
 
-pixi run p01 --simple        # NVIDIA (default); add `-e amd` or `-e apple` for other GPUs
-pixi run p01 --lidar
-pixi run p01 --benchmark     # builds maps/Spielberg_map.edt first (pixi run edt01)
-
-pixi run book                # the puzzle text, with hints and the solution
+uv run mojo -I . problems/p01/p01.mojo     # work a puzzle: fill in the FILL ME IN gap until it passes
+uv run mojo -I . solutions/p01/p01.mojo    # the reference
+uv run mojo -I . problems/p06/p06.mojo     # the benchmark, 8k cars on 8 maps
+mdbook serve book --open                   # the book (brew install mdbook, or cargo install mdbook)
 ```
 
-Your work goes in `problems/p01/p01.mojo`; the reference is
-`solutions/p01/p01.mojo`. The benchmark runs whatever is in the file, so once
-your kernels pass the two checks you can time your own code.
+`-I .` puts the repo root on Mojo's import path, where the `harness` package lives. Your work
+goes in `problems/pNN/pNN.mojo`; the reference is `solutions/pNN/pNN.mojo`. The book has one
+page per puzzle with the code to complete, tips, the expected output and the solution.
 
 ## Development
 
 ```bash
-pixi run tests               # run the solution in every mode
-pixi run check-skeletons     # problem == solution outside the fill-in regions
-pixi run compile-problems    # the unfilled skeleton still compiles
-pixi run check-book-refs     # book links and images resolve
-pixi run format
+bash solutions/run.sh                      # every solution and the harness test report ✅ (one: bash solutions/run.sh p03)
+bash scripts/check_problems.sh             # every unfilled skeleton still compiles, and fails at its own check
+uv run python scripts/check_skeletons.py   # problems == solutions outside the FILL ME IN regions
+uv run python scripts/check_canaries.py    # every learner-written kernel writes into a guarded buffer
+uv run python scripts/check_book_refs.py   # every book include, link and image resolves
+uv run mojo format harness problems solutions
+uv run --extra viz python book/src/puzzle_03/puzzle_03_viz.py   # regenerate a figure
 ```
 
 ## Layout
 
 | path | what it is |
 |---|---|
-| `problems/p01/p01.mojo` | the puzzle, with `# FILL ME IN` gaps |
-| `solutions/p01/p01.mojo` | reference solution and the `--benchmark` mode |
-| `book/src/puzzle_01/` | the chapter: overview, both parts, benchmark write-up |
-| `maps/Spielberg_map.{png,yaml}` | the track the benchmark marches on, from the F1TENTH map set |
-| `scripts/track_edt.py` | map image -> wall-distance field, the way `warporacer/track.py` does it |
-| `harness/` | the guarded output buffers from Mojo GPU Puzzles |
+| `problems/pNN/pNN.mojo` | the puzzle: a kernel with a `# FILL ME IN` gap and a check that fails until you fill it |
+| `solutions/pNN/pNN.mojo` | the same file with the gap filled; the book includes both via `# ANCHOR` markers |
+| `harness/canary.mojo` | guarded output buffers: NaN margins either side of the output catch out-of-bounds writes |
+| `harness/track.py` | map yaml + image -> wall-distance field in px, random drivable poses, zero-padded multi-map stacks |
+| `harness/track.mojo` | the same loader driven from Mojo through Python interop, with the field copied to the device |
+| `maps/` | ROS-style track maps from warporacer: the F1TENTH racetracks plus two hallway maps |
+| `book/` | the mdbook: one page per puzzle with the code to complete, tips, expected output and the solution |
+| `scripts/` | the checks above |
 
 ## Acknowledgments
 
-- The puzzle format, test harness, book theme and most of `scripts/` come from
-  Modular's [Mojo GPU Puzzles](https://github.com/modular/mojo-gpu-puzzles).
-- The kernel is `lidar_kernel` / `raycast` from
-  [warporacer](https://github.com/uci-f1tenth/warporacer), written for NVIDIA
-  Warp.
+- The puzzle format, the guarded-buffer harness and the shape of the book come from Modular's
+  [Mojo GPU Puzzles](https://github.com/modular/mojo-gpu-puzzles).
+- The kernels are `lidar_kernel` / `raycast` from
+  [warporacer](https://github.com/uci-f1tenth/warporacer), written for NVIDIA Warp, and the
+  maps are the F1TENTH racetrack set that ships with it.
 
 ## License
 
-Apache License v2.0 with LLVM Exceptions, same as Mojo GPU Puzzles. See
-[LICENSE](LICENSE).
+Apache License v2.0 with LLVM Exceptions, same as Mojo GPU Puzzles. See [LICENSE](LICENSE).
