@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-"""Check that the book's includes, links and images resolve, without needing mdbook.
+r"""Check that the book's includes, links, images and math survive mdbook, without running it.
 
 For every book/src/**/*.md this verifies that
   * `{{#include path}}` and `{{#include path:anchor}}` name an existing file, and that the
     anchor exists in it as `# ANCHOR: anchor`;
-  * local `[text](target)`, `![alt](target)` and `<img src="target">` targets exist.
+  * local `[text](target)`, `![alt](target)` and `<img src="target">` targets exist;
+  * math inside `\\( ... \\)` and `\\[ ... \\]` contains nothing Markdown rewrites before
+    MathJax sees it. mdbook runs Markdown escapes first, so `\,` `\;` `\{` `\_` and every
+    other backslash before ASCII punctuation lose the backslash (`\,` renders as a comma),
+    a row break must be written `\\\\`, and smart punctuation turns `'` `"` `--` `...` into
+    typographic characters. Letters-only commands (`\cos`, `\cdot`, `\quad`) and `\ ` are
+    safe.
 Targets inside fenced code blocks and inline code are ignored, as are http(s), mailto and
 pure #fragment links. Exits non-zero and lists `file:line -> target` for every miss."""
 
@@ -18,14 +24,31 @@ MD_REF = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 IMG_REF = re.compile(r"<img\b[^>]*?\bsrc=[\"']([^\"']+)[\"']", re.IGNORECASE)
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 INLINE_CODE = re.compile(r"(`+)(?:.+?)\1")
+MATH = re.compile(r"\\\\\((.*?)\\\\\)|\\\\\[(.*?)\\\\\]", re.DOTALL)
+BACKSLASHES = re.compile(r"(\\+)(.?)", re.DOTALL)
+SMART = re.compile(r"'|\"|--|\.\.\.|\*")
 
 
 def external(target):
     return target.startswith(("http://", "https://", "mailto:", "#", "data:"))
 
 
+def bad_math(text):
+    """(line, snippet) for every sequence in a math span that Markdown would rewrite."""
+    bad = []
+    for m in MATH.finditer(text):
+        body = m.group(1) if m.group(1) is not None else m.group(2)
+        lineno = text.count("\n", 0, m.start()) + 1
+        hits = [b for b in BACKSLASHES.finditer(body)
+                if not (len(b.group(1)) == 4 or (len(b.group(1)) == 1 and (b.group(2).isalpha() or b.group(2) == " ")))]
+        hits += list(SMART.finditer(body))
+        for h in hits:
+            bad.append((lineno, "math: " + body[max(0, h.start() - 12):h.end() + 12].replace("\n", " ")))
+    return bad
+
+
 def check(md):
-    misses, in_fence = [], False
+    misses, in_fence = bad_math(md.read_text()), False
     for lineno, line in enumerate(md.read_text().splitlines(), start=1):
         if FENCE.match(line):
             in_fence = not in_fence

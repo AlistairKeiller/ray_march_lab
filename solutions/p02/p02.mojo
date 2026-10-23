@@ -36,8 +36,10 @@ def clearance(
     oy: Scalar[dtype],
 ):
     var i = thread_idx.x
-    var col = Int((cars[i, 0] - ox) / res).clamp(0, SIZE - 1)
-    var row = Int(SIZE - 1 - (cars[i, 1] - oy) / res).clamp(0, SIZE - 1)
+    var col = Int((cars[i, 0] - ox) / res).clamp(0, Int(edt.dim[1]()) - 1)
+    var row = Int(
+        Scalar[dtype](Int(edt.dim[0]()) - 1) - (cars[i, 1] - oy) / res
+    ).clamp(0, Int(edt.dim[0]()) - 1)
     output[i] = edt[row, col] * res - HALF_DIAG
 
 

@@ -13,8 +13,8 @@ consecutive beams of one car.
 
 **Thread organisation:**
 
-- **Launch**: 8,192 blocks of 128 threads, 884,736 threads with 108 of every
-  128 doing work; warporacer's `block_dim=128`
+- **Launch**: 8,192 blocks of 128 threads, 1,048,576 in all, of which
+  884,736 (108 of every 128) do work; warporacer's `block_dim=128`
 - **Per thread**: a `cos`/`sin`, a start point, one rotation, one march
 - **Memory pattern**: a block holds one car's 108 beams, fanning out from one
   point

@@ -29,17 +29,16 @@ def raycast[
     EdtLayoutT: TensorLayout
 ](
     edt: TileTensor[mut=False, dtype, EdtLayoutT, ImmutAnyOrigin],
-    p: Vec2,
+    var p: Vec2,
     d: Vec2,
     max_px: Scalar[dtype],
 ) -> Scalar[dtype]:
     """Sphere-march from pixel `p` along unit direction `d` (col, row); returns
     distance in px."""
-    var pos = p
     var dist: Scalar[dtype] = 0
     while dist < max_px:
-        var col = Int(pos[0])
-        var row = Int(pos[1])
+        var col = Int(p[0])
+        var row = Int(p[1])
         if (
             col < 0
             or col >= Int(edt.dim[1]())
@@ -50,7 +49,7 @@ def raycast[
         var step = edt[row, col]
         if step == 0:
             break
-        pos += d * step
+        p += d * step
         dist += step
     return min(dist, max_px)
 

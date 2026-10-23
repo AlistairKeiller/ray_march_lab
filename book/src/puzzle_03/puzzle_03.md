@@ -22,30 +22,38 @@ In this puzzle, you'll learn about:
 - `while` loops with a data-dependent trip count
 - Declaring a mutable float: `var dist: Scalar[dtype] = 0`
 - `break` on a wall or a map edge
-- `SIMD[dtype, 2]` as a 2D vector: `pos += d * step` moves both coordinates
+- `SIMD[dtype, 2]` as a 2D vector: `p += d * step` moves both coordinates
+- A `var` argument, `var p: Vec2`: the function gets its own copy of `p`, so
+  the loop can move it
 - A function generic over its tensor's layout,
   `raycast[EdtLayoutT: TensorLayout]`, so that Puzzle 4 can call it on a
   track whose size is only known at run time
 
 ### The algorithm
 
-At the sample point \\(p\\), `edt[Int(p[1]), Int(p[0])]` is the distance to the
-nearest wall. No wall can be closer than that in any direction, so the ray can
-jump exactly that far without passing through one:
+The sample point \\(p\\) is a pixel coordinate `(col, row)`, so `p[0]`
+indexes columns and `p[1]` rows, and `edt[Int(p[1]), Int(p[0])]` is the
+distance from the sample to the nearest wall. No wall can be closer than that
+in any direction, so the ray can jump exactly that far without passing through
+one:
 
-\\[\Large p \leftarrow p + d \cdot edt[p] \qquad dist \leftarrow dist + edt[p]\\]
+\\[\Large step = edt\big[\lfloor p[1] \rfloor, \lfloor p[0] \rfloor\big]\\]
 
-until the sample lands on a wall pixel (`edt == 0`), leaves the raster, or
-`dist` reaches `max_px`. In open space the steps are large and shrink only as
-the ray closes in on something. The figure draws each step as a circle of radius
-`edt[p]`: every circle touches the nearest wall and contains none.
+\\[\Large p \leftarrow p + step \cdot d \qquad dist \leftarrow dist + step\\]
+
+Repeat until the sample lands on a wall pixel (`step == 0`), leaves the raster,
+or `dist` reaches `max_px`, and return `min(dist, max_px)`. In open space the
+steps are large and shrink only as the ray closes in on something. The figure
+draws each step as a circle of radius `step`: every circle touches the nearest
+wall and contains none.
 
 Two details:
 
-- The sample `pos` is a pixel coordinate `(col, row)`, so `pos[0]` indexes
-  columns and `pos[1]` rows
-- Test the bounds **before** reading `edt`, and return `min(dist, max_px)`, so
-  a ray whose last step overshoots still reports the cap
+- Test the bounds **before** reading `edt`: a sample outside the raster has no
+  distance to read
+- The loop condition is checked before a step, not after, so the last step can
+  carry `dist` past `max_px`; the `min` at the return is what makes a capped
+  ray report exactly the cap
 
 ### Memory access pattern
 
@@ -76,20 +84,17 @@ do is keep many rays in flight at once.
 
 <a href="{{#include ../_includes/repo_url.md}}/blob/main/problems/p03/p03.mojo" class="filename">View full file: problems/p03/p03.mojo</a>
 
-> **Note**: The skeleton declares `var pos = p` for you, so until your loop
-> reads it the compiler warns `assignment to 'pos' was never used`.
-
 <details>
 <summary><strong>Tips</strong></summary>
 
 <div class="solution-tips">
 
 1. Loop `while dist < max_px:`
-2. `var col = Int(pos[0])` and `var row = Int(pos[1])`
+2. `var col = Int(p[0])` and `var row = Int(p[1])`
 3. `break` if `col` is outside `[0, edt.dim[1]())` or `row` outside
    `[0, edt.dim[0]())`
 4. `var step = edt[row, col]`, and `break` if it is `0`
-5. Advance: `pos += d * step` and `dist += step`
+5. Advance: `p += d * step` and `dist += step`
 6. The `return min(dist, max_px)` is already there
 
 </div>

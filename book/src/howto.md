@@ -138,7 +138,7 @@ uv run mojo -I . problems/p06/p06.mojo maps/Spielberg_map.yaml
 bash scripts/check_problems.sh            # every unfilled skeleton compiles and fails at its own check
 uv run python scripts/check_skeletons.py  # problems == solutions outside the FILL regions
 uv run python scripts/check_canaries.py   # every learner-written kernel uses the guarded buffer
-uv run python scripts/check_book_refs.py  # every include, link and image in the book resolves
+uv run python scripts/check_book_refs.py  # every include, link and image resolves; no math Markdown would mangle
 uv run mojo format harness problems solutions
 
 # Figures (needs the viz extra)

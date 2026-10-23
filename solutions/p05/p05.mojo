@@ -42,18 +42,17 @@ comptime ScanLayout = type_of(scan_layout)
 def raycast(
     edt: TileTensor[mut=False, dtype, StackLayout, ImmutAnyOrigin],
     mid: Int,
-    p: Vec2,
+    var p: Vec2,
     d: Vec2,
     max_px: Scalar[dtype],
 ) -> Scalar[dtype]:
     """Sphere-march from pixel `p` along unit direction `d` (col, row); returns
     distance in px. Padding rows/cols are zero (= wall), so rays stop at each map's
     true bounds."""
-    var pos = p
     var dist: Scalar[dtype] = 0
     while dist < max_px:
-        var col = Int(pos[0])
-        var row = Int(pos[1])
+        var col = Int(p[0])
+        var row = Int(p[1])
         if (
             col < 0
             or col >= Int(edt.dim[2]())
@@ -64,7 +63,7 @@ def raycast(
         var step = edt[mid, row, col]
         if step == 0:
             break
-        pos += d * step
+        p += d * step
         dist += step
     return min(dist, max_px)
 
@@ -94,12 +93,13 @@ def lidar_multi(
     if j < NUM_LIDAR:
         var mid = Int(map_id[i])
         var r = res[mid]
+        var org = Vec2(origin[mid, 0], origin[mid, 1])
         var ch = cos(cars[i, 2])
         var sh = sin(cars[i, 2])
         var p = Vec2(
-            (cars[i, 0] + LIDAR_MOUNT_X * ch - origin[mid, 0]) / r,
+            (cars[i, 0] + LIDAR_MOUNT_X * ch - org[0]) / r,
             Scalar[dtype](Int(map_h[mid]) - 1)
-            - (cars[i, 1] + LIDAR_MOUNT_X * sh - origin[mid, 1]) / r,
+            - (cars[i, 1] + LIDAR_MOUNT_X * sh - org[1]) / r,
         )
         var d = Vec2(
             ch * lidar_dirs[j, 0] - sh * lidar_dirs[j, 1],

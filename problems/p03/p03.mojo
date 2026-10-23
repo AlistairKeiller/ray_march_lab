@@ -29,13 +29,12 @@ def raycast[
     EdtLayoutT: TensorLayout
 ](
     edt: TileTensor[mut=False, dtype, EdtLayoutT, ImmutAnyOrigin],
-    p: Vec2,
+    var p: Vec2,
     d: Vec2,
     max_px: Scalar[dtype],
 ) -> Scalar[dtype]:
     """Sphere-march from pixel `p` along unit direction `d` (col, row); returns
     distance in px."""
-    var pos = p
     var dist: Scalar[dtype] = 0
     # FILL ME IN (roughly 9 lines)
     return min(dist, max_px)

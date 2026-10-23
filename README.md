@@ -43,7 +43,7 @@ bash solutions/run.sh                      # every solution and the harness test
 bash scripts/check_problems.sh             # every unfilled skeleton still compiles, and fails at its own check
 uv run python scripts/check_skeletons.py   # problems == solutions outside the FILL ME IN regions
 uv run python scripts/check_canaries.py    # every learner-written kernel writes into a guarded buffer
-uv run python scripts/check_book_refs.py   # every book include, link and image resolves
+uv run python scripts/check_book_refs.py   # every book include, link and image resolves; no math Markdown would mangle
 uv run mojo format harness problems solutions
 uv run --extra viz python book/src/puzzle_03/puzzle_03_viz.py   # regenerate a figure
 ```

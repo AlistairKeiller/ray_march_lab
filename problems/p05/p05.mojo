@@ -42,18 +42,17 @@ comptime ScanLayout = type_of(scan_layout)
 def raycast(
     edt: TileTensor[mut=False, dtype, StackLayout, ImmutAnyOrigin],
     mid: Int,
-    p: Vec2,
+    var p: Vec2,
     d: Vec2,
     max_px: Scalar[dtype],
 ) -> Scalar[dtype]:
     """Sphere-march from pixel `p` along unit direction `d` (col, row); returns
     distance in px. Padding rows/cols are zero (= wall), so rays stop at each map's
     true bounds."""
-    var pos = p
     var dist: Scalar[dtype] = 0
     while dist < max_px:
-        var col = Int(pos[0])
-        var row = Int(pos[1])
+        var col = Int(p[0])
+        var row = Int(p[1])
         if (
             col < 0
             or col >= Int(edt.dim[2]())
@@ -64,7 +63,7 @@ def raycast(
         var step = edt[mid, row, col]
         if step == 0:
             break
-        pos += d * step
+        p += d * step
         dist += step
     return min(dist, max_px)
 
@@ -92,7 +91,7 @@ def lidar_multi(
     var i = block_idx.y
     var j = thread_idx.x
     if j < NUM_LIDAR:
-        # FILL ME IN (roughly 12 lines)
+        # FILL ME IN (roughly 15 lines)
         pass
 
 

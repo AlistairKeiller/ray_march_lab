@@ -48,16 +48,15 @@ comptime MapH = TileTensor[
 
 
 def raycast(
-    edt: Edt, mid: Int, p: Vec2, d: Vec2, max_px: Scalar[dtype]
+    edt: Edt, mid: Int, var p: Vec2, d: Vec2, max_px: Scalar[dtype]
 ) -> Scalar[dtype]:
     """Sphere-march from pixel `p` along unit direction `d` (col, row); returns
     distance in px. Padding rows/cols are zero (= wall), so rays stop at each map's
     true bounds."""
-    var pos = p
     var dist: Scalar[dtype] = 0
     while dist < max_px:
-        var col = Int(pos[0])
-        var row = Int(pos[1])
+        var col = Int(p[0])
+        var row = Int(p[1])
         if (
             col < 0
             or col >= Int(edt.dim[2]())
@@ -68,22 +67,21 @@ def raycast(
         var step = edt[mid, row, col]
         if step == 0:
             break
-        pos += d * step
+        p += d * step
         dist += step
     return min(dist, max_px)
 
 
 def raycast_fixed_step(
-    edt: Edt, mid: Int, p: Vec2, d: Vec2, max_px: Scalar[dtype]
+    edt: Edt, mid: Int, var p: Vec2, d: Vec2, max_px: Scalar[dtype]
 ) -> Scalar[dtype]:
     """The march you would write without a distance field: advance 1 px at a time and
     test for wall. Same stopping rules as raycast(), one read per pixel of range.
     """
-    var pos = p
     var dist: Scalar[dtype] = 0
     while dist < max_px:
-        var col = Int(pos[0])
-        var row = Int(pos[1])
+        var col = Int(p[0])
+        var row = Int(p[1])
         if (
             col < 0
             or col >= Int(edt.dim[2]())
@@ -93,7 +91,7 @@ def raycast_fixed_step(
             break
         if edt[mid, row, col] == 0:
             break
-        pos += d
+        p += d
         dist += 1
     return min(dist, max_px)
 

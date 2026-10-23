@@ -21,11 +21,11 @@ not milliseconds.
 On the GPU, sphere tracing is 6x faster than stepping one pixel at a time. On
 the CPU it is not faster at all.
 
-A ray on these tracks travels about 3.3 m on average, 57 px at 5 cm/px, so the
-1 px stepper does 57 lookups per ray and 346 for the 1% that reach the 20 m
-range. The sphere trace does about 7 (median 4, 90th percentile 17, and over a
-hundred for a ray skimming along a wall): 8x fewer loop iterations, each a
-little more expensive.
+A ray on these tracks travels about 3.3 m on average, 57 px at the racetrack
+maps' 5.8 cm/px, so the 1 px stepper does 57 lookups per ray and 346 for the 1%
+that reach the 20 m range. The sphere trace does about 7 (median 4, 90th
+percentile 17, and over a hundred for a ray skimming along a wall): 8x fewer
+loop iterations, each a little more expensive.
 
 **Why the CPU does not care.** A sphere-trace lookup lands somewhere new every
 step, in a 100 MB raster that fits in no cache, so most of its 7 reads are
